@@ -1,0 +1,184 @@
+import java.io.*;
+import java.util.*;
+
+public class CustomerServiceQueue {
+
+    static class Customer {
+        String token;
+        String name;
+        String service;
+
+        Customer(String token, String name, String service) {
+            this.token = token;
+            this.name = name;
+            this.service = service;
+        }
+
+        String toFileLine() {
+            return token + "|" + name + "|" + service;
+        }
+    }
+
+    static final String FILE_NAME = "customers.txt";
+    static final String[] MENU = {
+        "1 - Join Queue",
+        "2 - Call Next Customer",
+        "3 - Display Queue",
+        "4 - Leave Queue (by Token)",
+        "5 - Exit"
+    };
+
+    static Queue<Customer> queue = new LinkedList<>();
+    static int nextToken = 101;
+    static Scanner sc = new Scanner(System.in);
+
+    public static void main(String[] args) {
+        loadFromFile();
+
+        int choice = 0;
+        while (choice != 5) {
+            showMenu();
+            String input = sc.nextLine().trim();
+
+            try {
+                choice = Integer.parseInt(input);
+            } catch (NumberFormatException e) {
+                System.out.println("Please enter a number between 1 and 5.");
+                choice = 0;
+                continue;
+            }
+
+            switch (choice) {
+                case 1:
+                    joinQueue();
+                    break;
+                case 2:
+                    callNext();
+                    break;
+                case 3:
+                    displayQueue();
+                    break;
+                case 4:
+                    leaveQueue();
+                    break;
+                case 5:
+                    saveToFile();
+                    System.out.println("Data saved. Goodbye!");
+                    break;
+                default:
+                    System.out.println("Invalid option. Try again.");
+            }
+        }
+    }
+
+    static void showMenu() {
+        System.out.println("\n===== Customer Service Queue =====");
+        for (String item : MENU) {
+            System.out.println(item);
+        }
+        System.out.print("Enter your choice: ");
+    }
+
+    static void joinQueue() {
+        System.out.print("Name: ");
+        String name = sc.nextLine().trim();
+        System.out.print("Service: ");
+        String service = sc.nextLine().trim();
+
+        if (name.isEmpty() || service.isEmpty()) {
+            System.out.println("Name and service cannot be empty.");
+            return;
+        }
+
+        name = name.replace("|", " ");
+        service = service.replace("|", " ");
+
+        String token = "Q" + nextToken;
+        nextToken++;
+        int ahead = queue.size();
+        queue.add(new Customer(token, name, service));
+
+        System.out.println("Token issued. " + token + " | " + name + " | "
+                + service + " | People ahead: " + ahead);
+    }
+
+    static void callNext() {
+        Customer c = queue.poll();
+        if (c == null) {
+            System.out.println("Queue is empty. No customer to call.");
+            return;
+        }
+
+        if (queue.isEmpty()) {
+            System.out.println("Now serving: " + c.token + " | " + c.name);
+            System.out.println("Queue is now empty.");
+        } else {
+            System.out.println("Now serving: " + c.token + " | " + c.name
+                    + ". Remaining in queue: " + queue.size());
+        }
+    }
+
+    static void displayQueue() {
+        if (queue.isEmpty()) {
+            System.out.println("Queue is empty.");
+            return;
+        }
+
+        Customer[] list = queue.toArray(new Customer[0]);
+        for (int i = 0; i < list.length; i++) {
+            System.out.println((i + 1) + ". " + list[i].token + " | "
+                    + list[i].name + " | " + list[i].service);
+        }
+    }
+
+    static void leaveQueue() {
+        System.out.print("Token: ");
+        String token = sc.nextLine().trim();
+
+        Iterator<Customer> it = queue.iterator();
+        while (it.hasNext()) {
+            Customer c = it.next();
+            if (c.token.equalsIgnoreCase(token)) {
+                it.remove();
+                System.out.println("Token " + c.token + " (" + c.name + ") has left the queue.");
+                return;
+            }
+        }
+        System.out.println("Token " + token + " not found.");
+    }
+
+    static void loadFromFile() {
+        File file = new File(FILE_NAME);
+        if (!file.exists()) {
+            return;
+        }
+
+        try (BufferedReader br = new BufferedReader(new FileReader(file))) {
+            String line;
+            while ((line = br.readLine()) != null) {
+                if (line.trim().isEmpty()) {
+                    continue;
+                }
+                String[] parts = line.split("\\|");
+                if (parts[0].equals("NEXT") && parts.length == 2) {
+                    nextToken = Integer.parseInt(parts[1].trim());
+                } else if (parts.length == 3) {
+                    queue.add(new Customer(parts[0], parts[1], parts[2]));
+                }
+            }
+        } catch (IOException | NumberFormatException e) {
+            System.out.println("Could not read " + FILE_NAME + " properly: " + e.getMessage());
+        }
+    }
+
+    static void saveToFile() {
+        try (PrintWriter pw = new PrintWriter(new FileWriter(FILE_NAME))) {
+            pw.println("NEXT|" + nextToken);
+            for (Customer c : queue) {
+                pw.println(c.toFileLine());
+            }
+        } catch (IOException e) {
+            System.out.println("Error saving file: " + e.getMessage());
+        }
+    }
+}
